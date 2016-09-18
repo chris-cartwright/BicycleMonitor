@@ -3,10 +3,14 @@ package com.chris_cartwright.android.bicyclemonitor;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.bluetooth.*;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.IBinder;
 import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -17,20 +21,11 @@ import android.view.ViewGroup;
 import android.widget.*;
 
 import com.adafruit.bluefruit.le.connect.ble.BleDevicesScanner;
-import com.adafruit.bluefruit.le.connect.ble.BleManager;
-import com.adafruit.bluefruit.le.connect.ble.BleManager.BleManagerListener;
 import com.adafruit.bluefruit.le.connect.ble.BleUtils;
-import com.adafruit.bluefruit.le.connect.ble.KnownUUIDs;
 
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-public class MainActivity extends AppCompatActivity implements BleManagerListener {
+public class MainActivity extends AppCompatActivity implements BluetoothLoggerService.EventListener {
     private static final String TAG = MainActivity.class.getName();
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
 
@@ -42,16 +37,25 @@ public class MainActivity extends AppCompatActivity implements BleManagerListene
     private double speed;
     private String status;
 
-    private Pattern sensorData;
-
-    private BleManager manager;
     private BleDevicesScanner scanner;
-    private BluetoothGattService uartService;
 
     private ArrayList<BluetoothDeviceData> scannedDevices;
-    private BluetoothDeviceData selectedDeviceData;
     private DeviceListAdaptor deviceListAdaptor;
-    private StringBuilder dataBuffer;
+    private BluetoothLoggerService bluetoothService;
+
+    private ServiceConnection connection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            BluetoothLoggerService.Binder binder = (BluetoothLoggerService.Binder) service;
+            bluetoothService = binder.getService();
+            bluetoothService.setListener(MainActivity.this);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName className) {
+            bluetoothService = null;
+        }
+    };
 
     // Needs to run on UI thread because BleDevicesScanner creates a Handler
     private void startScan() {
@@ -60,9 +64,8 @@ public class MainActivity extends AppCompatActivity implements BleManagerListene
         status = "Scanning...";
         updateUI();
 
-        if(manager.getState() == BleManager.STATE_CONNECTED) {
-            manager.disconnect();
-            selectedDeviceData = null;
+        if(bluetoothService != null) {
+            bluetoothService.disconnect();
         }
 
         stopScanning();
@@ -124,6 +127,7 @@ public class MainActivity extends AppCompatActivity implements BleManagerListene
             return;
         }
 
+        scannedDevices.clear();
         scanner.stop();
         scanner = null;
     }
@@ -136,26 +140,10 @@ public class MainActivity extends AppCompatActivity implements BleManagerListene
                 statusTextView.setText(status);
                 cadenceTextView.setText(cadence + "");
                 speedTextView.setText(String.format("%.1f", speed));
+
+                findViewById(R.id.lvDevices).setVisibility(scanner == null ? View.INVISIBLE : View.VISIBLE);
             }
         });
-    }
-
-    private void onData(String data) {
-        Log.i(TAG, "Data: " + data);
-        Matcher matcher = sensorData.matcher(data);
-        if(!matcher.matches()) {
-            Toast.makeText(MainActivity.this, "Failed to parse sensor data.", Toast.LENGTH_LONG);
-            Log.w(TAG, "Invalid sensor data: " + data);
-            return;
-        }
-
-        int speedRpm = Integer.parseInt(matcher.group(1));
-        // speed = 2 * Math.PI * 350 * speedRpm * (60/1000000);
-        speed = speedRpm * 350 * 0.00037699111843;
-
-        cadence = Integer.parseInt(matcher.group(2));
-
-        updateUI();
     }
 
     @Override
@@ -164,16 +152,14 @@ public class MainActivity extends AppCompatActivity implements BleManagerListene
         setContentView(R.layout.activity_main);
 
         scannedDevices = new ArrayList<>();
-        dataBuffer = new StringBuilder(10);
-        sensorData = Pattern.compile("S(\\d+)C(\\d+)");
+
+        Intent i = new Intent(this, BluetoothLoggerService.class);
+        startService(i);
 
         // Grab references to UI elements.
         speedTextView = (TextView) findViewById(R.id.tvSpeed);
         cadenceTextView = (TextView) findViewById(R.id.tvCadence);
         statusTextView = (TextView) findViewById(R.id.tvStatus);
-
-        manager = BleManager.getInstance(this);
-        manager.setBleListener(this);
 
         deviceListAdaptor = new DeviceListAdaptor(MainActivity.this, scannedDevices);
         ((ListView)findViewById(R.id.lvDevices)).setAdapter(deviceListAdaptor);
@@ -206,8 +192,31 @@ public class MainActivity extends AppCompatActivity implements BleManagerListene
     @Override
     public void onResume() {
         super.onResume();
+    }
 
-        manager.setBleListener(this);
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        Intent i = new Intent(this, BluetoothLoggerService.class);
+        bindService(i, connection, Context.BIND_AUTO_CREATE);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        if(bluetoothService != null) {
+            unbindService(connection);
+            bluetoothService = null;
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        stopService(new Intent(this, BluetoothLoggerService.class));
     }
 
     @Override
@@ -236,81 +245,35 @@ public class MainActivity extends AppCompatActivity implements BleManagerListene
     }
 
     @Override
-    public void onConnected() {
-        Log.i(TAG, "Connected to device: " + selectedDeviceData.getNiceName());
-
-        stopScanning();
-
-        status = "Connected to " + selectedDeviceData.getNiceName();
-        scannedDevices.clear();
-
-        updateUI();
-    }
-
-    @Override
-    public void onConnecting() {
-    }
-
-    @Override
-    public void onDisconnected() {
-        Log.i(TAG, "Device disconnected.");
-        selectedDeviceData = null;
+    public void onError(String message) {
+        Log.e(TAG, message);
+        final String msg = message;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                startScan();
+                Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG);
             }
         });
     }
 
     @Override
-    public void onServicesDiscovered() {
-        Log.i(TAG, "Found services");
+    public void onConnected() {
+        stopScanning();
 
-        uartService = manager.getGattService(KnownUUIDs.UUID_SERVICE);
-        if(uartService == null) {
-            selectedDeviceData = null;
-
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(MainActivity.this, "Failed to connect to BLE device", Toast.LENGTH_LONG);
-                    startScan();
-                }
-            });
-
-            return;
-        }
-
-        manager.enableNotification(uartService, KnownUUIDs.UUID_RX, true);
+        status = "Connected to " + bluetoothService.getSelected().advertisedName;
+        updateUI();
     }
 
     @Override
-    public synchronized void onDataAvailable(BluetoothGattCharacteristic characteristic) {
-        Log.d(TAG, "Data available in characteristic");
-        if (!characteristic.getService().getUuid().toString().equalsIgnoreCase(KnownUUIDs.UUID_SERVICE) ||
-                !characteristic.getUuid().toString().equalsIgnoreCase(KnownUUIDs.UUID_RX)) {
-            return;
-        }
-
-        final byte[] bytes = characteristic.getValue();
-        final String data = new String(bytes, Charset.forName("UTF-8"));
-
-        dataBuffer.append(data);
-        int newline = dataBuffer.indexOf("\n");
-        if(newline != -1) {
-            String d = dataBuffer.substring(0, newline);
-            dataBuffer.delete(0, newline + 1);
-            onData(d);
-        }
+    public void onDisconnected() {
+        startScan();
     }
 
     @Override
-    public synchronized void onDataAvailable(BluetoothGattDescriptor descriptor) {
-    }
-
-    @Override
-    public void onReadRemoteRssi(int rssi) {
+    public void onData(double speed, int cadence) {
+        this.speed = speed;
+        this.cadence = cadence;
+        updateUI();
     }
 
     public class DeviceListAdaptor extends ArrayAdapter<BluetoothDeviceData> {
@@ -336,9 +299,8 @@ public class MainActivity extends AppCompatActivity implements BleManagerListene
                 @Override
                 public void onClick(View v) {
                     Log.i(TAG, "Connect to " + data.getNiceName());
-                    if(manager.connect(DeviceListAdaptor.this.context, data.device.getAddress())){
-                        selectedDeviceData = data;
-                    }
+                    bluetoothService.connect(data);
+
                 }
             });
             textView.setText(data.getNiceName());
