@@ -9,9 +9,12 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.location.Criteria;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -146,6 +149,26 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
         });
     }
 
+    private void verifyGps() {
+        // http://stackoverflow.com/a/3470757
+        LocationManager locationManager = (LocationManager)MainActivity.this.getSystemService(Context.LOCATION_SERVICE);
+
+        Criteria locationCriteria = new Criteria();
+        locationCriteria.setAccuracy(Criteria.ACCURACY_COARSE);
+        locationCriteria.setAltitudeRequired(false);
+        locationCriteria.setBearingRequired(false);
+        locationCriteria.setCostAllowed(true);
+        locationCriteria.setPowerRequirement(Criteria.NO_REQUIREMENT);
+
+        String providerName = locationManager.getBestProvider(locationCriteria, true);
+
+        if (providerName == null || !locationManager.isProviderEnabled(providerName)) {
+            Toast.makeText(MainActivity.this, "Please enable location services", Toast.LENGTH_LONG).show();
+            Intent myIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            MainActivity.this.startActivity(myIntent);
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -182,9 +205,11 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
                 });
                 builder.show();
             } else {
+                verifyGps();
                 startScan();
             }
         } else {
+            verifyGps();
             startScan();
         }
     }

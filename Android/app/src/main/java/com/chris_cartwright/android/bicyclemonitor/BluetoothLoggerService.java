@@ -54,6 +54,7 @@ public class BluetoothLoggerService extends IntentService implements BleManager.
 
     @Override
     protected void onHandleIntent(Intent intent) {
+        Log.i(TAG, "Started service");
         manager = BleManager.getInstance(this);
         manager.setBleListener(this);
     }
