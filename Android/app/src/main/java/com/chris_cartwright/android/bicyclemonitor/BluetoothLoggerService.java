@@ -4,7 +4,6 @@ import android.app.IntentService;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
-import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
@@ -27,6 +26,7 @@ public class BluetoothLoggerService extends IntentService implements BleManager.
 
     private Pattern sensorData;
     private StringBuilder dataBuffer;
+    private DbHelper dbHelper;
 
     private double speed;
     private int cadence;
@@ -50,6 +50,7 @@ public class BluetoothLoggerService extends IntentService implements BleManager.
 
         dataBuffer = new StringBuilder(10);
         sensorData = Pattern.compile("S(\\d+)C(\\d+)");
+        dbHelper = new DbHelper(this);
     }
 
     @Override
@@ -77,6 +78,9 @@ public class BluetoothLoggerService extends IntentService implements BleManager.
         speed = speedRpm * 350 * 0.00037699111843;
 
         cadence = Integer.parseInt(matcher.group(2));
+
+        HistoryEntry entry = new HistoryEntry(speed, cadence);
+        (new DbHelper(this)).add(entry);
 
         if(listener != null) {
             listener.onData(speed, cadence);
