@@ -19,12 +19,16 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
 
 import com.adafruit.bluefruit.le.connect.ble.BleDevicesScanner;
 import com.adafruit.bluefruit.le.connect.ble.BleUtils;
+
+import org.acra.ACRA;
 
 import java.util.ArrayList;
 
@@ -266,6 +270,24 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
                     builder.show();
                 }
             }
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add(Menu.NONE, 1, Menu.NONE, "Send crash report");
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case 1:
+                ACRA.getErrorReporter().handleException(null);
+                return true;
+
+            default:
+                return super.onOptionsItemSelected(item);
         }
     }
 
