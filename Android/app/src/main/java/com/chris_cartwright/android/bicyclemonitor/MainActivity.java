@@ -27,6 +27,7 @@ import android.widget.*;
 
 import com.adafruit.bluefruit.le.connect.ble.BleDevicesScanner;
 import com.adafruit.bluefruit.le.connect.ble.BleUtils;
+import com.chris_cartwright.android.bicyclemonitor.thingspeak.UpdateThingSpeakTask;
 
 import org.acra.ACRA;
 
@@ -276,6 +277,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(Menu.NONE, 1, Menu.NONE, "Send crash report");
+        menu.add(Menu.NONE, 2, Menu.NONE, "Upload to ThingSpeak");
         return true;
     }
 
@@ -284,6 +286,10 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
         switch (item.getItemId()) {
             case 1:
                 ACRA.getErrorReporter().handleException(null);
+                return true;
+
+            case 2:
+                new UpdateThingSpeakTask(this).execute();
                 return true;
 
             default:

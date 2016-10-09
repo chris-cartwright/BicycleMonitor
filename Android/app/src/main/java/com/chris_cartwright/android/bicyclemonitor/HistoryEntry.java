@@ -1,8 +1,13 @@
 package com.chris_cartwright.android.bicyclemonitor;
 
+import java.util.Date;
+import java.util.UUID;
+
 public class HistoryEntry {
     private double speed;
     private int cadence;
+    private UUID uuid;
+    private Date created;
 
     public double getSpeed() {
         return speed;
@@ -20,7 +25,26 @@ public class HistoryEntry {
         this.cadence = cadence;
     }
 
+    public UUID getUuid() {
+        return uuid;
+    }
+
+    public void setUuid(UUID uuid) {
+        this.uuid = uuid;
+    }
+
+    public Date getCreated() {
+        return created;
+    }
+
+    public void setCreated(Date created) {
+        this.created = created;
+    }
+
+    public HistoryEntry(){}
+
     public HistoryEntry(double speed, int cadence) {
+        this.uuid = UUID.randomUUID();
         this.speed = speed;
         this.cadence = cadence;
     }
