@@ -39,10 +39,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
     private static final String TAG = MainActivity.class.getName();
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
 
-    private static final UUID PEBBLE_UUID = UUID.fromString("2e24a1a9-021d-4ad3-a7db-d8249d9de6de");
-    private static final int PEBBLE_KEY_SPEED = 10000;
-    private static final int PEBBLE_KEY_CADENCE = 10001;
-
     private TextView cadenceTextView;
     private TextView speedTextView;
     private TextView statusTextView;
@@ -57,8 +53,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
     private DeviceListAdaptor deviceListAdaptor;
     private BluetoothLoggerService bluetoothService;
 
-    private PebbleKit.PebbleAckReceiver ackReceiver;
-    private PebbleKit.PebbleNackReceiver nackReceiver;
+    private Pebble pebble;
+    private CadenceWatcher cadenceWatcher;
 
     private ServiceConnection connection = new ServiceConnection() {
         @Override
@@ -227,27 +223,15 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
             startScan();
         }
 
-        ackReceiver = new PebbleKit.PebbleAckReceiver(PEBBLE_UUID) {
-            @Override
-            public void receiveAck(Context context, int transactionId) {
-                //
-            }
-        };
-
-        nackReceiver = new PebbleKit.PebbleNackReceiver(PEBBLE_UUID){
-            @Override
-            public void receiveNack(Context context, int transactionId) {
-                //
-            }
-        };
-
-        PebbleKit.registerReceivedAckHandler(this, ackReceiver);
-        PebbleKit.registerReceivedNackHandler(this, nackReceiver);
+        pebble = new Pebble(getApplicationContext());
+        cadenceWatcher = new CadenceWatcher();
     }
 
     @Override
     public void onResume() {
         super.onResume();
+
+        pebble.startApp();
     }
 
     @Override
@@ -257,7 +241,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
         Intent i = new Intent(this, BluetoothLoggerService.class);
         bindService(i, connection, Context.BIND_AUTO_CREATE);
 
-        PebbleKit.startAppOnPebble(getApplicationContext(), PEBBLE_UUID);
+        pebble.startApp();
     }
 
     @Override
@@ -275,8 +259,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
         super.onDestroy();
 
         stopService(new Intent(this, BluetoothLoggerService.class));
-        unregisterReceiver(ackReceiver);
-        unregisterReceiver(nackReceiver);
     }
 
     @Override
@@ -307,6 +289,9 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(Menu.NONE, 1, Menu.NONE, "Send crash report");
+        menu.add(Menu.NONE, 2, Menu.NONE, "Test vibrate low");
+        menu.add(Menu.NONE, 3, Menu.NONE, "Test vibrate high");
+        menu.add(Menu.NONE, 4, Menu.NONE, "Test vibrate good");
         return true;
     }
 
@@ -315,6 +300,18 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
         switch (item.getItemId()) {
             case 1:
                 ACRA.getErrorReporter().handleException(null);
+                return true;
+
+            case 2:
+                pebble.vibrate(Pebble.VIBRATE_CADENCE_LOW);
+                return true;
+
+            case 3:
+                pebble.vibrate(Pebble.VIBRATE_CADENCE_HIGH);
+                return true;
+
+            case 4:
+                pebble.vibrate(Pebble.VIBRATE_CADENCE_GOOD);
                 return true;
 
             default:
@@ -353,10 +350,50 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
         this.cadence = cadence;
         updateUI();
 
-        PebbleDictionary dict = new PebbleDictionary();
-        dict.addString(PEBBLE_KEY_SPEED, String.format("%.1f", speed));
-        dict.addInt32(PEBBLE_KEY_CADENCE, cadence);
-        PebbleKit.sendDataToPebble(getApplicationContext(), PEBBLE_UUID, dict);
+        pebble.updateStats(speed, cadence);
+        cadenceWatcher.update(cadence);
+    }
+
+    private class CadenceWatcher {
+        private static final int LOW = 80;
+        private static final int HIGH = 100;
+
+        // Start off as too slow because the bike isn't moving
+        // -1 Slow
+        // 0 Good
+        // 1 High
+        private int last = -1;
+
+        public void update(int cadence) {
+            int newState;
+
+            if(cadence < LOW) {
+                newState = -1;
+            }
+            else if(cadence > HIGH) {
+                newState = 1;
+            }
+            else {
+                newState = 0;
+            }
+
+            // Only vibrate if our state has changed
+            if(newState == last) {
+                return;
+            }
+
+            last = newState;
+
+            if(newState == -1) {
+                MainActivity.this.pebble.vibrate(Pebble.VIBRATE_CADENCE_LOW);
+            }
+            else if(newState == 0) {
+                MainActivity.this.pebble.vibrate(Pebble.VIBRATE_CADENCE_GOOD);
+            }
+            else {
+                MainActivity.this.pebble.vibrate(Pebble.VIBRATE_CADENCE_HIGH);
+            }
+        }
     }
 
     public class DeviceListAdaptor extends ArrayAdapter<BluetoothDeviceData> {
