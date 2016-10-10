@@ -15,6 +15,8 @@ import java.nio.charset.Charset;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.adafruit.bluefruit.le.connect.ble.BleManager.STATE_CONNECTED;
+
 public class BluetoothLoggerService extends IntentService implements BleManager.BleManagerListener {
     private static final String TAG = BluetoothLoggerService.class.getName();
 
@@ -88,7 +90,7 @@ public class BluetoothLoggerService extends IntentService implements BleManager.
     }
 
     public void disconnect() {
-        if(manager.getState() == BleManager.STATE_CONNECTED) {
+        if(manager.getState() == STATE_CONNECTED) {
             manager.disconnect();
             selected = null;
         }
@@ -101,6 +103,10 @@ public class BluetoothLoggerService extends IntentService implements BleManager.
         }
 
         return false;
+    }
+
+    public boolean isConnected() {
+        return manager.getState() == STATE_CONNECTED;
     }
 
     public void setListener(EventListener listener) {

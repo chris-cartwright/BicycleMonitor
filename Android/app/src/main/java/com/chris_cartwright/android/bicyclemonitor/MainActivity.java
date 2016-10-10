@@ -292,6 +292,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
         menu.add(Menu.NONE, 2, Menu.NONE, "Test vibrate low");
         menu.add(Menu.NONE, 3, Menu.NONE, "Test vibrate high");
         menu.add(Menu.NONE, 4, Menu.NONE, "Test vibrate good");
+        menu.add(Menu.NONE, 5, Menu.NONE, "Disconnect");
         return true;
     }
 
@@ -312,6 +313,10 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
 
             case 4:
                 pebble.vibrate(Pebble.VIBRATE_CADENCE_GOOD);
+                return true;
+
+            case 5:
+                startScan();
                 return true;
 
             default:
