@@ -27,14 +27,21 @@ import android.widget.*;
 
 import com.adafruit.bluefruit.le.connect.ble.BleDevicesScanner;
 import com.adafruit.bluefruit.le.connect.ble.BleUtils;
+import com.getpebble.android.kit.PebbleKit;
+import com.getpebble.android.kit.util.PebbleDictionary;
 
 import org.acra.ACRA;
 
 import java.util.ArrayList;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements BluetoothLoggerService.EventListener {
     private static final String TAG = MainActivity.class.getName();
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
+
+    private static final UUID PEBBLE_UUID = UUID.fromString("2e24a1a9-021d-4ad3-a7db-d8249d9de6de");
+    private static final int PEBBLE_KEY_SPEED = 10000;
+    private static final int PEBBLE_KEY_CADENCE = 10001;
 
     private TextView cadenceTextView;
     private TextView speedTextView;
@@ -49,6 +56,9 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
     private ArrayList<BluetoothDeviceData> scannedDevices;
     private DeviceListAdaptor deviceListAdaptor;
     private BluetoothLoggerService bluetoothService;
+
+    private PebbleKit.PebbleAckReceiver ackReceiver;
+    private PebbleKit.PebbleNackReceiver nackReceiver;
 
     private ServiceConnection connection = new ServiceConnection() {
         @Override
@@ -216,6 +226,23 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
             verifyGps();
             startScan();
         }
+
+        ackReceiver = new PebbleKit.PebbleAckReceiver(PEBBLE_UUID) {
+            @Override
+            public void receiveAck(Context context, int transactionId) {
+                //
+            }
+        };
+
+        nackReceiver = new PebbleKit.PebbleNackReceiver(PEBBLE_UUID){
+            @Override
+            public void receiveNack(Context context, int transactionId) {
+                //
+            }
+        };
+
+        PebbleKit.registerReceivedAckHandler(this, ackReceiver);
+        PebbleKit.registerReceivedNackHandler(this, nackReceiver);
     }
 
     @Override
@@ -229,6 +256,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
 
         Intent i = new Intent(this, BluetoothLoggerService.class);
         bindService(i, connection, Context.BIND_AUTO_CREATE);
+
+        PebbleKit.startAppOnPebble(getApplicationContext(), PEBBLE_UUID);
     }
 
     @Override
@@ -246,6 +275,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
         super.onDestroy();
 
         stopService(new Intent(this, BluetoothLoggerService.class));
+        unregisterReceiver(ackReceiver);
+        unregisterReceiver(nackReceiver);
     }
 
     @Override
@@ -321,6 +352,11 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
         this.speed = speed;
         this.cadence = cadence;
         updateUI();
+
+        PebbleDictionary dict = new PebbleDictionary();
+        dict.addString(PEBBLE_KEY_SPEED, String.format("%.1f", speed));
+        dict.addInt32(PEBBLE_KEY_CADENCE, cadence);
+        PebbleKit.sendDataToPebble(getApplicationContext(), PEBBLE_UUID, dict);
     }
 
     public class DeviceListAdaptor extends ArrayAdapter<BluetoothDeviceData> {
