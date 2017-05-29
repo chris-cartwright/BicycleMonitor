@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Bicycle Monitor</string>
-    <string name="title_activity_maps">Map</string>
+    <string name="arca_logged">Error log sent to ACRA</string>
 </resources>
