@@ -4,14 +4,19 @@
 #include "Adafruit_BLE.h"
 #include "Adafruit_BluefruitLE_SPI.h"
 
-//#define TIME_LOOP
+// Send extra info to the BLE receiver
+//#define EXTRA_INFO
 
 Adafruit_BluefruitLE_SPI ble(8, 7, 4);
 
-unsigned int speed_counter;
-unsigned int cadence_counter;
+int speed_counter = 0;
+int cadence_counter = 0;
 unsigned long lastMillis = 0;
 unsigned long loop_interval = 2000;
+int packet_num = 0;
+bool last_speed_state = LOW;
+bool last_cadence_state = LOW;
+int num_reads = 0;
 
 void error(const __FlashStringHelper*err) {
   Serial.println(err);
@@ -34,9 +39,6 @@ void waitConnection() {
   digitalWrite(13, LOW);
 
   ble.setMode(BLUEFRUIT_MODE_DATA);
-
-  attachInterrupt(0, speed_interrupt, FALLING);
-  attachInterrupt(1, cadence_interrupt, FALLING);
 }
 
 void setup(void) {
@@ -65,6 +67,13 @@ void setup(void) {
   // Turn down the noise
   ble.verbose(false);
 
+  pinMode(9, INPUT);
+  pinMode(10, INPUT);
+
+  // Turn on the pull-up resistors
+  digitalWrite(9, HIGH);
+  digitalWrite(10, HIGH);
+
   waitConnection();
 
   Serial.println(F("Done setup."));
@@ -72,8 +81,6 @@ void setup(void) {
 
 void loop(void) {
   if (!ble.isConnected()) {
-    detachInterrupt(0);
-    detachInterrupt(1);
     waitConnection();
     return;
   }
@@ -87,20 +94,32 @@ void loop(void) {
         break;
 
       case 'R':
-        detachInterrupt(0);
-        detachInterrupt(1);
         ble.disconnect();
         waitConnection();
         return;
     }
   }
 
+  num_reads++;
+  bool new_state = digitalRead(9);
+  // Detect rising edge
+  if(last_speed_state == LOW && new_state == HIGH) {
+    speed_counter++;
+  }
+
+  last_speed_state = new_state;
+
+  new_state = digitalRead(10);
+  // Detect rising edge
+  if(last_cadence_state == LOW && new_state == HIGH) {
+    cadence_counter++;
+  }
+
+  last_cadence_state = new_state;
+
   if (millis() - lastMillis < loop_interval) {
     return;
   }
-
-  detachInterrupt(0);
-  detachInterrupt(1);
 
   int speed_rpm = speed_counter / (loop_interval / 1000);
   int cadence_rpm = cadence_counter / (loop_interval / 1000);
@@ -111,22 +130,28 @@ void loop(void) {
   ble.print("C");
   ble.print(cadence_rpm);
 
+  // Used for debugging to make sure we're getting new packets
+  packet_num++;
+  ble.print("P");
+  ble.print(packet_num);
+
+#ifdef EXTRA_INFO
+  ble.print("N");
+  ble.print(num_reads);
+
+  ble.print("RS");
+  ble.print(speed_counter);
+
+  ble.print("RC");
+  ble.print(cadence_counter);
+#endif
+
   ble.print("\n");
 
   speed_counter = 0;
   cadence_counter = 0;
+  num_reads = 0;
 
   lastMillis = millis();
-
-  attachInterrupt(0, speed_interrupt, FALLING);
-  attachInterrupt(1, cadence_interrupt, FALLING);
-}
-
-void speed_interrupt() {
-  speed_counter++;
-}
-
-void cadence_interrupt() {
-  cadence_counter++;
 }
 
