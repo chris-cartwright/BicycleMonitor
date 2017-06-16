@@ -3,6 +3,7 @@ package com.chris_cartwright.android.bicyclemonitor;
 public class HistoryEntry {
     private double speed;
     private int cadence;
+    private int packetNum;
 
     public double getSpeed() {
         return speed;
@@ -20,8 +21,17 @@ public class HistoryEntry {
         this.cadence = cadence;
     }
 
-    public HistoryEntry(double speed, int cadence) {
+    public int getPacketNum() {
+        return packetNum;
+    }
+
+    public void setPacketNum(int packetNum) {
+        this.packetNum = packetNum;
+    }
+
+    public HistoryEntry(double speed, int cadence, int packetNum) {
         this.speed = speed;
         this.cadence = cadence;
+        this.packetNum = packetNum;
     }
 }

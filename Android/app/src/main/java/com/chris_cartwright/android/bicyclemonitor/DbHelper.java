@@ -12,6 +12,7 @@ public class DbHelper extends SQLiteOpenHelper {
     public static final String SPEED_NAME = "speed";
     public static final String CADENCE_NAME = "cadence";
     public static final String CREATED_NAME = "created";
+    public static final String PACKET_NAME = "packet_num";
     public static final String TABLE_NAME = "history";
 
     private static final String SQL_CREATE_ENTRIES =
@@ -19,6 +20,7 @@ public class DbHelper extends SQLiteOpenHelper {
             ID_NAME + " INTEGER PRIMARY KEY, " +
             SPEED_NAME + " DECIMAL(5,2), " +
             CADENCE_NAME + " INT, " +
+            PACKET_NAME + " INT, " +
             CREATED_NAME + " DATETIME DEFAULT CURRENT_TIMESTAMP" +
         ")";
 
@@ -50,6 +52,7 @@ public class DbHelper extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put(DbHelper.SPEED_NAME, entry.getSpeed());
         values.put(DbHelper.CADENCE_NAME, entry.getCadence());
+        values.put(DbHelper.PACKET_NAME, entry.getPacketNum());
         SQLiteDatabase db = DbHelper.this.getWritableDatabase();
         db.insert(DbHelper.TABLE_NAME, null, values);
     }

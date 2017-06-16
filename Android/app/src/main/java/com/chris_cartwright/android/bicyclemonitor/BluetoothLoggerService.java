@@ -51,7 +51,7 @@ public class BluetoothLoggerService extends IntentService implements BleManager.
         super(BluetoothLoggerService.class.getName());
 
         dataBuffer = new StringBuilder(10);
-        sensorData = Pattern.compile("S(\\d+)C(\\d+)");
+        sensorData = Pattern.compile("^S(\\d+)C(\\d+)P(\\d+)");
         dbHelper = new DbHelper(this);
     }
 
@@ -80,8 +80,9 @@ public class BluetoothLoggerService extends IntentService implements BleManager.
         speed = speedRpm * 350 * 0.00037699111843;
 
         cadence = Integer.parseInt(matcher.group(2));
+        int packetNum = Integer.parseInt(matcher.group(3));
 
-        HistoryEntry entry = new HistoryEntry(speed, cadence);
+        HistoryEntry entry = new HistoryEntry(speed, cadence, packetNum);
         (new DbHelper(this)).add(entry);
 
         if(listener != null) {
