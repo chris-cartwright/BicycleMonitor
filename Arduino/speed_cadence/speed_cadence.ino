@@ -19,8 +19,8 @@ bool last_speed_state = LOW;
 bool last_cadence_state = LOW;
 int num_reads = 0;
 
-const int speed_pin = 10;
-const int cadence_pin = 11;
+const int speed_pin = 11;
+const int cadence_pin = 10;
 
 void serial_print(const char* msg) {
 #if SERIAL_DEBUG
