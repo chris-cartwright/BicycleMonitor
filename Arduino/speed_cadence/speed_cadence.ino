@@ -165,8 +165,8 @@ void loop(void) {
     return;
   }
 
-  int speed_rpm = speed_counter / (loop_interval / 1000);
-  int cadence_rpm = cadence_counter / (loop_interval / 1000);
+  int speed_rpm = ((float)speed_counter / (loop_interval / 1000.0)) * 60;
+  int cadence_rpm = cadence_counter / (loop_interval / 1000) * 60;
 
   ble.print("S");
   ble.print(speed_rpm);

@@ -1,15 +1,23 @@
 package com.chris_cartwright.android.bicyclemonitor;
 
 public class HistoryEntry {
-    private double speed;
+    private int speed;
     private int cadence;
     private int packetNum;
 
-    public double getSpeed() {
+    /**
+     * In RPM
+     * @return
+     */
+    public int getSpeed() {
         return speed;
     }
 
-    public void setSpeed(double speed) {
+    /**
+     * In RPM
+     * @param speed
+     */
+    public void setSpeed(int speed) {
         this.speed = speed;
     }
 
@@ -29,7 +37,7 @@ public class HistoryEntry {
         this.packetNum = packetNum;
     }
 
-    public HistoryEntry(double speed, int cadence, int packetNum) {
+    public HistoryEntry(int speed, int cadence, int packetNum) {
         this.speed = speed;
         this.cadence = cadence;
         this.packetNum = packetNum;

@@ -18,7 +18,7 @@ public class DbHelper extends SQLiteOpenHelper {
     private static final String SQL_CREATE_ENTRIES =
         "CREATE TABLE " + TABLE_NAME + " (" +
             ID_NAME + " INTEGER PRIMARY KEY, " +
-            SPEED_NAME + " DECIMAL(5,2), " +
+            SPEED_NAME + " INT, " +
             CADENCE_NAME + " INT, " +
             PACKET_NAME + " INT, " +
             CREATED_NAME + " DATETIME DEFAULT CURRENT_TIMESTAMP" +

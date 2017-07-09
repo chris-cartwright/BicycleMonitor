@@ -44,7 +44,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
     private TextView statusTextView;
 
     private int cadence;
-    private double speed;
+    private int speedRpm;
+    private double speedKmh;
     private String status;
 
     private BleDevicesScanner scanner;
@@ -152,7 +153,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
                 deviceListAdaptor.notifyDataSetChanged();
                 statusTextView.setText(status);
                 cadenceTextView.setText(cadence + "");
-                speedTextView.setText(String.format("%.1f", speed));
+                speedTextView.setText(String.format("%.1f", speedKmh));
 
                 findViewById(R.id.lvDevices).setVisibility(scanner == null ? View.INVISIBLE : View.VISIBLE);
             }
@@ -350,12 +351,15 @@ public class MainActivity extends AppCompatActivity implements BluetoothLoggerSe
     }
 
     @Override
-    public void onData(double speed, int cadence) {
-        this.speed = speed;
+    public void onData(int speed, int cadence) {
+        this.speedRpm = speed;
         this.cadence = cadence;
-        updateUI();
 
-        pebble.updateStats(speed, cadence);
+        // (2 * PI * r * rpm * 60) / 1000
+        this.speedKmh = (2 * 3.1416 * 0.335 * speed * 60) / 1000;
+
+        updateUI();
+        pebble.updateStats(this.speedKmh, cadence);
         cadenceWatcher.update(cadence);
     }
 
