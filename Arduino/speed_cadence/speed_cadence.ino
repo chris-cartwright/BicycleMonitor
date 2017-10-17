@@ -10,17 +10,32 @@
 
 Adafruit_BluefruitLE_SPI ble(8, 7, 4);
 
-int speed_counter = 0;
-int cadence_counter = 0;
 unsigned long lastMillis = 0;
 unsigned long loop_interval = 2000;
 int packet_num = 0;
-bool last_speed_state = LOW;
-bool last_cadence_state = LOW;
 int num_reads = 0;
 
-const int speed_pin = 11;
-const int cadence_pin = 10;
+typedef struct {
+  bool last_state;
+  unsigned long last_read;
+  long rotation_time;
+  int pin;
+} RPM;
+
+RPM speed = { LOW, 0, 0, 11 };
+RPM cadence = { LOW, 0, 0, 10 };
+
+void update_rpm(RPM* values) {
+  unsigned long now = millis();
+  bool new_state = digitalRead(values->pin);
+  // Detect rising edge
+  if(values->last_state == LOW && new_state == HIGH) {
+    values->rotation_time = values->last_read - now;
+    values->last_read = now;
+  }
+
+  values->last_state = new_state;
+}
 
 void serial_print(const char* msg) {
 #if SERIAL_DEBUG
@@ -102,12 +117,12 @@ void setup(void) {
   // Turn down the noise
   ble.verbose(false);
 
-  pinMode(speed_pin, INPUT);
-  pinMode(cadence_pin, INPUT);
+  pinMode(speed.pin, INPUT);
+  pinMode(cadence.pin, INPUT);
 
   // Turn on the pull-up resistors
-  digitalWrite(speed_pin, HIGH);
-  digitalWrite(cadence_pin, HIGH);
+  digitalWrite(speed.pin, HIGH);
+  digitalWrite(cadence.pin, HIGH);
 
   serial_println(F("Done setup."));
 
@@ -145,28 +160,15 @@ void loop(void) {
   }
 
   num_reads++;
-  bool new_state = digitalRead(speed_pin);
-  // Detect rising edge
-  if(last_speed_state == LOW && new_state == HIGH) {
-    speed_counter++;
-  }
-
-  last_speed_state = new_state;
-
-  new_state = digitalRead(cadence_pin);
-  // Detect rising edge
-  if(last_cadence_state == LOW && new_state == HIGH) {
-    cadence_counter++;
-  }
-
-  last_cadence_state = new_state;
+  update_rpm(&speed);
+  update_rpm(&cadence);
 
   if (millis() - lastMillis < loop_interval) {
     return;
   }
 
-  int speed_rpm = ((float)speed_counter / (loop_interval / 1000.0)) * 60;
-  int cadence_rpm = cadence_counter / (loop_interval / 1000) * 60;
+  int speed_rpm = 60000.0 / speed.rotation_time;
+  int cadence_rpm = 60000.0 / cadence.rotation_time;
 
   ble.print("S");
   ble.print(speed_rpm);
@@ -184,16 +186,14 @@ void loop(void) {
   ble.print(num_reads);
 
   ble.print("RS");
-  ble.print(speed_counter);
+  ble.print(speed.rotation_time);
 
   ble.print("RC");
-  ble.print(cadence_counter);
+  ble.print(cadence.rotation_time);
 #endif
 
   ble.print("\n");
 
-  speed_counter = 0;
-  cadence_counter = 0;
   num_reads = 0;
 
   lastMillis = millis();
