@@ -167,6 +167,8 @@ void loop(void) {
     return;
   }
 
+  unsigned long before_send = millis();
+
   int speed_rpm = 60000.0 / speed.rotation_time;
   int cadence_rpm = 60000.0 / cadence.rotation_time;
 
@@ -197,5 +199,7 @@ void loop(void) {
   num_reads = 0;
 
   lastMillis = millis();
+  speed.last_read += lastMillis - before_send;
+  cadence.last_read += lastMillis - before_send;
 }
 
