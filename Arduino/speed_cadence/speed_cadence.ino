@@ -11,30 +11,39 @@
 Adafruit_BluefruitLE_SPI ble(8, 7, 4);
 
 unsigned long lastMillis = 0;
-unsigned long loop_interval = 2000;
+unsigned long loop_interval = 1000;
 int packet_num = 0;
 int num_reads = 0;
 
 typedef struct {
   bool last_state;
   unsigned long last_read;
-  long rotation_time;
+  long rotation_accumulated;
+  short rotation_count;
   int pin;
 } RPM;
 
-RPM speed = { LOW, 0, 0, 11 };
-RPM cadence = { LOW, 0, 0, 10 };
+RPM speed = { LOW, 0, 0, 0, 11 };
+RPM cadence = { LOW, 0, 0, 0, 10 };
 
 void update_rpm(RPM* values) {
   unsigned long now = millis();
   bool new_state = digitalRead(values->pin);
   // Detect rising edge
   if(values->last_state == LOW && new_state == HIGH) {
-    values->rotation_time = values->last_read - now;
+    values->rotation_accumulated += values->last_read - now;
+    values->rotation_count++;
     values->last_read = now;
   }
 
   values->last_state = new_state;
+}
+
+void reset_rpm(RPM* values) {
+  values->last_state = LOW;
+  values->last_read = millis();
+  values->rotation_accumulated = 0;
+  values->rotation_count = 0;
 }
 
 void serial_print(const char* msg) {
@@ -167,10 +176,8 @@ void loop(void) {
     return;
   }
 
-  unsigned long before_send = millis();
-
-  int speed_rpm = 60000.0 / speed.rotation_time;
-  int cadence_rpm = 60000.0 / cadence.rotation_time;
+  int speed_rpm = 60000.0 / ((float)speed.rotation_accumulated / (float)speed.rotation_count);
+  int cadence_rpm = 60000.0 / ((float)cadence.rotation_accumulated / (float)cadence.rotation_count);
 
   ble.print("S");
   ble.print(speed_rpm);
@@ -186,12 +193,6 @@ void loop(void) {
 #ifdef EXTRA_INFO
   ble.print("N");
   ble.print(num_reads);
-
-  ble.print("RS");
-  ble.print(speed.rotation_time);
-
-  ble.print("RC");
-  ble.print(cadence.rotation_time);
 #endif
 
   ble.print("\n");
@@ -199,7 +200,9 @@ void loop(void) {
   num_reads = 0;
 
   lastMillis = millis();
-  speed.last_read += lastMillis - before_send;
-  cadence.last_read += lastMillis - before_send;
+
+  // Don't include the time it took to send data over Bluetooth
+  reset_rpm(&speed);
+  reset_rpm(&cadence);
 }
 
